@@ -15,7 +15,7 @@ namespace BetterFog
     {
         public const string PluginGuid = "carnuke.betterfog";
         public const string PluginName = "BetterFog";
-        public const string PluginVersion = "0.2.0";
+        public const string PluginVersion = "0.2.1";
 
         internal static ManualLogSource Log = null!;
         private static ConfigEntry<bool> _enableBetterFog = null!;
@@ -38,6 +38,7 @@ namespace BetterFog
         private static FieldInfo? _rmLevelLobbyMenuField;
         private static FieldInfo? _rmLevelSplashScreenField;
         private static FieldInfo? _rmLevelIsShopField;
+        private static FieldInfo? _rmLevelLobbyField;
 
         // Extra units past FogEndDistance before geometry is clipped; raise if clip is too close
         private const float ClipPadding = 30f;
@@ -102,7 +103,7 @@ namespace BetterFog
             if (lgType  != null) { _lgInstanceField  = AccessTools.Field(lgType,  "Instance"); _lgGeneratedField  = AccessTools.Field(lgType,  "Generated"); }
             if (envType != null) { _envFogColorField = AccessTools.Field(envType, "FogColor"); _envFogStartField = AccessTools.Field(envType, "FogStartDistance"); _envFogEndField = AccessTools.Field(envType, "FogEndDistance"); _envMainCameraField = AccessTools.Field(envType, "MainCamera"); _envSetupDoneField = AccessTools.Field(envType, "SetupDone"); }
             var rmType = AccessTools.TypeByName("RunManager");
-            if (rmType != null) { _rmInstanceField = AccessTools.Field(rmType, "instance"); _rmLevelCurrentField = AccessTools.Field(rmType, "levelCurrent"); _rmLevelMainMenuField = AccessTools.Field(rmType, "levelMainMenu"); _rmLevelLobbyMenuField = AccessTools.Field(rmType, "levelLobbyMenu"); _rmLevelSplashScreenField = AccessTools.Field(rmType, "levelSplashScreen"); _rmLevelIsShopField = AccessTools.Field(rmType, "levelIsShop"); }
+            if (rmType != null) { _rmInstanceField = AccessTools.Field(rmType, "instance"); _rmLevelCurrentField = AccessTools.Field(rmType, "levelCurrent"); _rmLevelMainMenuField = AccessTools.Field(rmType, "levelMainMenu"); _rmLevelLobbyMenuField = AccessTools.Field(rmType, "levelLobbyMenu"); _rmLevelSplashScreenField = AccessTools.Field(rmType, "levelSplashScreen"); _rmLevelIsShopField = AccessTools.Field(rmType, "levelIsShop"); _rmLevelLobbyField = AccessTools.Field(rmType, "levelLobby"); }
         }
 
         // Read MainCamera directly from the EnvironmentDirector instance we already have
@@ -162,6 +163,14 @@ namespace BetterFog
             return rm != null && (bool)(_rmLevelIsShopField.GetValue(rm) ?? false);
         }
 
+        private static bool IsShopFogArea()
+        {
+            if (IsShopLevel()) return true;
+            if (_rmInstanceField == null || _rmLevelCurrentField == null || _rmLevelLobbyField == null) return false;
+            var rm = _rmInstanceField.GetValue(null);
+            return rm != null && ReferenceEquals(_rmLevelCurrentField.GetValue(rm), _rmLevelLobbyField.GetValue(rm));
+        }
+
         // Fallback: FogLogic may not run every frame on the menu (SetupDone gate)
         private void Update()
         {
@@ -213,7 +222,7 @@ namespace BetterFog
                 }
 
                 Color fogColor = _envFogColorField != null ? (Color)_envFogColorField.GetValue(__instance) : Color.gray;
-                bool isShop = IsShopLevel();
+                bool isShop = IsShopFogArea();
                 float fogStart = isShop ? _shopFogStartOverride.Value : _fogStartOverride.Value;
                 float fogEnd = isShop ? _shopFogEndOverride.Value : _fogEndOverride.Value;
                 fogEnd = Mathf.Max(fogEnd, fogStart + 0.01f);
