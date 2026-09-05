@@ -29,6 +29,8 @@ After BetterFog starts once, BepInEx writes `carnuke.betterfog.cfg` in its confi
 - `Enable Better Fog`: Enables BetterFog's radial fog. Default: `true`.
 - `Start Distance`: Distance in world units where fog begins. Default: `8`.
 - `End Distance`: Distance in world units where fog reaches full strength. Default: `16`.
+- `Shop Start Distance`: Distance in shop levels where fog begins. Default: `60`.
+- `Shop End Distance`: Distance in shop levels where fog reaches full strength. Default: `300`.
 
 One REPO level module is 15 world units long.
 

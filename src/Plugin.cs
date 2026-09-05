@@ -15,12 +15,14 @@ namespace BetterFog
     {
         public const string PluginGuid = "carnuke.betterfog";
         public const string PluginName = "BetterFog";
-        public const string PluginVersion = "0.1.0";
+        public const string PluginVersion = "0.2.0";
 
         internal static ManualLogSource Log = null!;
         private static ConfigEntry<bool> _enableBetterFog = null!;
         private static ConfigEntry<float> _fogStartOverride = null!;
         private static ConfigEntry<float> _fogEndOverride = null!;
+        private static ConfigEntry<float> _shopFogStartOverride = null!;
+        private static ConfigEntry<float> _shopFogEndOverride = null!;
 
         // Cached reflection handles — populated once in Awake
         private static FieldInfo? _lgInstanceField;
@@ -35,6 +37,7 @@ namespace BetterFog
         private static FieldInfo? _rmLevelMainMenuField;
         private static FieldInfo? _rmLevelLobbyMenuField;
         private static FieldInfo? _rmLevelSplashScreenField;
+        private static FieldInfo? _rmLevelIsShopField;
 
         // Extra units past FogEndDistance before geometry is clipped; raise if clip is too close
         private const float ClipPadding = 30f;
@@ -67,6 +70,16 @@ namespace BetterFog
                 "End Distance",
                 16f,
                 "Fog end distance in world units. One level module is 15 units long. Default: 16.");
+            _shopFogStartOverride = Config.Bind(
+                "Fog",
+                "Shop Start Distance",
+                60f,
+                "Fog start distance in shop levels. Default: 60.");
+            _shopFogEndOverride = Config.Bind(
+                "Fog",
+                "Shop End Distance",
+                300f,
+                "Fog end distance in shop levels. Default: 300.");
 
             CacheReflection();
             LoadFogBundle();
@@ -89,7 +102,7 @@ namespace BetterFog
             if (lgType  != null) { _lgInstanceField  = AccessTools.Field(lgType,  "Instance"); _lgGeneratedField  = AccessTools.Field(lgType,  "Generated"); }
             if (envType != null) { _envFogColorField = AccessTools.Field(envType, "FogColor"); _envFogStartField = AccessTools.Field(envType, "FogStartDistance"); _envFogEndField = AccessTools.Field(envType, "FogEndDistance"); _envMainCameraField = AccessTools.Field(envType, "MainCamera"); _envSetupDoneField = AccessTools.Field(envType, "SetupDone"); }
             var rmType = AccessTools.TypeByName("RunManager");
-            if (rmType != null) { _rmInstanceField = AccessTools.Field(rmType, "instance"); _rmLevelCurrentField = AccessTools.Field(rmType, "levelCurrent"); _rmLevelMainMenuField = AccessTools.Field(rmType, "levelMainMenu"); _rmLevelLobbyMenuField = AccessTools.Field(rmType, "levelLobbyMenu"); _rmLevelSplashScreenField = AccessTools.Field(rmType, "levelSplashScreen"); }
+            if (rmType != null) { _rmInstanceField = AccessTools.Field(rmType, "instance"); _rmLevelCurrentField = AccessTools.Field(rmType, "levelCurrent"); _rmLevelMainMenuField = AccessTools.Field(rmType, "levelMainMenu"); _rmLevelLobbyMenuField = AccessTools.Field(rmType, "levelLobbyMenu"); _rmLevelSplashScreenField = AccessTools.Field(rmType, "levelSplashScreen"); _rmLevelIsShopField = AccessTools.Field(rmType, "levelIsShop"); }
         }
 
         // Read MainCamera directly from the EnvironmentDirector instance we already have
@@ -140,6 +153,13 @@ namespace BetterFog
             if (_rmLevelLobbyMenuField    != null && ReferenceEquals(current, _rmLevelLobbyMenuField.GetValue(rm)))    return false;
             if (_rmLevelSplashScreenField != null && ReferenceEquals(current, _rmLevelSplashScreenField.GetValue(rm))) return false;
             return true;
+        }
+
+        private static bool IsShopLevel()
+        {
+            if (_rmInstanceField == null || _rmLevelIsShopField == null) return false;
+            var rm = _rmInstanceField.GetValue(null);
+            return rm != null && (bool)(_rmLevelIsShopField.GetValue(rm) ?? false);
         }
 
         // Fallback: FogLogic may not run every frame on the menu (SetupDone gate)
@@ -193,8 +213,9 @@ namespace BetterFog
                 }
 
                 Color fogColor = _envFogColorField != null ? (Color)_envFogColorField.GetValue(__instance) : Color.gray;
-                float fogStart = _fogStartOverride.Value;
-                float fogEnd = _fogEndOverride.Value;
+                bool isShop = IsShopLevel();
+                float fogStart = isShop ? _shopFogStartOverride.Value : _fogStartOverride.Value;
+                float fogEnd = isShop ? _shopFogEndOverride.Value : _fogEndOverride.Value;
                 fogEnd = Mathf.Max(fogEnd, fogStart + 0.01f);
 
                 if (_fogEffect == null)
