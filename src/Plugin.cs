@@ -15,7 +15,7 @@ namespace BetterFog
     {
         public const string PluginGuid = "carnuke.betterfog";
         public const string PluginName = "BetterFog";
-        public const string PluginVersion = "0.2.1";
+        public const string PluginVersion = "0.2.2";
 
         internal static ManualLogSource Log = null!;
         private static ConfigEntry<bool> _enableBetterFog = null!;
