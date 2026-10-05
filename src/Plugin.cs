@@ -15,7 +15,7 @@ namespace BetterFog
     {
         public const string PluginGuid = "carnuke.betterfog";
         public const string PluginName = "BetterFog";
-        public const string PluginVersion = "0.2.2";
+        public const string PluginVersion = "0.2.3";
 
         internal static ManualLogSource Log = null!;
         private static ConfigEntry<bool> _enableBetterFog = null!;
@@ -39,6 +39,7 @@ namespace BetterFog
         private static FieldInfo? _rmLevelSplashScreenField;
         private static FieldInfo? _rmLevelIsShopField;
         private static FieldInfo? _rmLevelLobbyField;
+        private static MethodInfo? _semiRunIsArenaMethod;
 
         // Extra units past FogEndDistance before geometry is clipped; raise if clip is too close
         private const float ClipPadding = 30f;
@@ -73,14 +74,14 @@ namespace BetterFog
                 "Fog end distance in world units. One level module is 15 units long. Default: 16.");
             _shopFogStartOverride = Config.Bind(
                 "Fog",
-                "Shop Start Distance",
+                "Shop/Arena/Truck Start Distance",
                 60f,
-                "Fog start distance in shop levels. Default: 60.");
+                "Fog start distance in shop/arena/truck levels. Default: 60.");
             _shopFogEndOverride = Config.Bind(
                 "Fog",
-                "Shop End Distance",
+                "Shop/Arena/Truck End Distance",
                 300f,
-                "Fog end distance in shop levels. Default: 300.");
+                "Fog end distance in shop/arena/truck levels. Default: 300.");
 
             CacheReflection();
             LoadFogBundle();
@@ -102,6 +103,8 @@ namespace BetterFog
             var envType = AccessTools.TypeByName("EnvironmentDirector");
             if (lgType  != null) { _lgInstanceField  = AccessTools.Field(lgType,  "Instance"); _lgGeneratedField  = AccessTools.Field(lgType,  "Generated"); }
             if (envType != null) { _envFogColorField = AccessTools.Field(envType, "FogColor"); _envFogStartField = AccessTools.Field(envType, "FogStartDistance"); _envFogEndField = AccessTools.Field(envType, "FogEndDistance"); _envMainCameraField = AccessTools.Field(envType, "MainCamera"); _envSetupDoneField = AccessTools.Field(envType, "SetupDone"); }
+            var semiType = AccessTools.TypeByName("SemiFunc");
+            if (semiType != null) _semiRunIsArenaMethod = AccessTools.Method(semiType, "RunIsArena");
             var rmType = AccessTools.TypeByName("RunManager");
             if (rmType != null) { _rmInstanceField = AccessTools.Field(rmType, "instance"); _rmLevelCurrentField = AccessTools.Field(rmType, "levelCurrent"); _rmLevelMainMenuField = AccessTools.Field(rmType, "levelMainMenu"); _rmLevelLobbyMenuField = AccessTools.Field(rmType, "levelLobbyMenu"); _rmLevelSplashScreenField = AccessTools.Field(rmType, "levelSplashScreen"); _rmLevelIsShopField = AccessTools.Field(rmType, "levelIsShop"); _rmLevelLobbyField = AccessTools.Field(rmType, "levelLobby"); }
         }
@@ -163,9 +166,16 @@ namespace BetterFog
             return rm != null && (bool)(_rmLevelIsShopField.GetValue(rm) ?? false);
         }
 
+        private static bool IsArenaLevel()
+        {
+            if (_semiRunIsArenaMethod == null) return false;
+            try { return (bool)(_semiRunIsArenaMethod.Invoke(null, null) ?? false); }
+            catch { return false; }
+        }
+
         private static bool IsShopFogArea()
         {
-            if (IsShopLevel()) return true;
+            if (IsShopLevel() || IsArenaLevel()) return true;
             if (_rmInstanceField == null || _rmLevelCurrentField == null || _rmLevelLobbyField == null) return false;
             var rm = _rmInstanceField.GetValue(null);
             return rm != null && ReferenceEquals(_rmLevelCurrentField.GetValue(rm), _rmLevelLobbyField.GetValue(rm));
